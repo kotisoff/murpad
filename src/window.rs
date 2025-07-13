@@ -7,12 +7,11 @@ use crate::{
 };
 
 use iced::{
-    Alignment, Element, Length, Subscription, Task,
-    futures::stream,
+    Alignment, Element, Length, Task,
     widget::{Column, button, column, container, pick_list, text},
 };
-use std::{path::PathBuf, sync::Arc};
-use tokio::sync::{Mutex, mpsc};
+use std::path::PathBuf;
+use tokio::sync::mpsc;
 
 #[derive(Clone)]
 struct SoundPad {
@@ -20,7 +19,6 @@ struct SoundPad {
     sounds_dir: PathBuf,
     output_devices: Vec<String>,
     config: app_config::AppConfig,
-    socket_rx: Option<Arc<Mutex<mpsc::Receiver<usize>>>>,
 }
 
 impl Default for SoundPad {
@@ -48,7 +46,6 @@ impl Default for SoundPad {
             sounds_dir,
             output_devices,
             config,
-            socket_rx: None,
         }
     }
 }
@@ -81,7 +78,6 @@ impl SoundPad {
             }
             Message::TokioStartListening => {
                 let (tx, mut rx) = mpsc::channel::<usize>(10);
-                self.socket_rx = Some(Arc::new(Mutex::new(rx)));
 
                 tokio::task::spawn(async move {
                     let config = app_config::load_app_config();
@@ -94,16 +90,26 @@ impl SoundPad {
                     };
                 });
 
-                // return Task::<Message>::perform(
-                //     async move {
-                //         while let Some(msg) = rx.recv().await {
-                //             println!("Охуеть, пакет, {}", msg);
-                //         }
-                //         println!("Сыбались с цикла.");
-                //         Message::ButtonPressed(0)
-                //     },
-                //     |m| m,
-                // );
+                let obj = self.clone();
+
+                return Task::<Message>::perform(
+                    async move {
+                        while let Some(msg) = rx.recv().await {
+                            println!("Охуеть, пакет, {}", msg);
+
+                            if let Some(button) = obj.buttons.get(msg - 1) {
+                                let sound_path = obj.sounds_dir.join(&button.file);
+                                let device_name = &obj.config.sound.device;
+                                let config = obj.config.clone();
+
+                                play_sound_on_device(sound_path, device_name.to_string(), config)
+                                    .await;
+                            }
+                        }
+                        Message::TokioMessageReceived(0)
+                    },
+                    |m| m,
+                );
             }
             Message::TokioMessageReceived(id) => return Task::done(Message::ButtonPressed(id)),
             _ => {}
@@ -143,19 +149,6 @@ impl SoundPad {
         .center(Length::Fill)
         .into()
     }
-
-    // fn subscription(&self) -> Subscription<Message> {
-    //     if let Some(rx) = &self.socket_rx {
-    //         let stream = stream::unfold(rx, |mut rx| async move {
-    //             let msg = rx.as_ref().into_inner().recv().await.unwrap();
-    //             Some((msg, rx))
-    //         });
-
-    //         Subscription::none()
-    //     } else {
-    //         Subscription::none()
-    //     }
-    // }
 }
 
 pub fn create_window() -> iced::Result {
