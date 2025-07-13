@@ -35,18 +35,19 @@ pub fn get_audio_devices() -> Result<(Vec<String>, Option<String>)> {
 }
 
 // Воспроизведение звука на конкретном устройстве
-pub fn play_sound_on_device(
+pub async fn play_sound_on_device(
     path: PathBuf,
-    device_name: &str,
-    config: config::Config,
-) -> Result<()> {
+    device_name: String,
+    config: app_config::AppConfig,
+) {
     let host = default_host();
-    let mut devices = host.output_devices()?;
+    let mut devices = host.output_devices().unwrap();
 
     // Ищем устройство по имени
     let device = devices
         .find(|d| d.name().map(|n| n == device_name).unwrap_or(false))
-        .with_context(|| format!("Устройство '{}' не найдено", device_name))?;
+        .with_context(|| format!("Устройство '{}' не найдено", device_name))
+        .unwrap();
 
     // Создаем поток для устройства
     let stream_handler = OutputStreamBuilder::from_device(device)
@@ -57,20 +58,17 @@ pub fn play_sound_on_device(
                 "Не удалось создать источник звука из устройства '{}'.",
                 device_name
             )
-        })?;
+        })
+        .unwrap();
 
     // Открываем файл
-    let file = File::open(path)?;
-    let source = Decoder::new(BufReader::new(file))?;
+    let file = File::open(path).unwrap();
+    let source = Decoder::new(BufReader::new(file)).unwrap();
 
-    let volume = app_config::get_value(config, "sound", "volume")
-        .into_float()
-        .unwrap() as f32;
+    let volume = config.sound.volume;
 
     let sink = Sink::connect_new(&stream_handler.mixer());
     sink.set_volume(volume);
     sink.append(source);
     sink.sleep_until_end();
-
-    Ok(())
 }

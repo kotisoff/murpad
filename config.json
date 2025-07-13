@@ -1,0 +1,10 @@
+{
+  "sound": {
+    "device": "Динамики (USB Audio Device)",
+    "volume": 0.1
+  },
+  "socket": {
+    "enabled": true,
+    "port": 12345
+  }
+}

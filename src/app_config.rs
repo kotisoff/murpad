@@ -1,50 +1,103 @@
-use config::{Config, Value};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::io::Write;
+use std::{fs::File, io::BufReader};
 
-pub fn load_config() -> Config {
-    let settings = Config::builder()
-        .add_source(config::File::with_name("./Settings"))
-        .add_source(config::Environment::with_prefix("APP"))
-        .build()
-        .unwrap();
+use crate::audio_utils;
 
-    settings
+pub fn load<T: DeserializeOwned + Serialize + Default>(file: &str) -> Result<T, Box<dyn Error>> {
+    let f = File::open(file);
+    match f {
+        Ok(buffer) => {
+            let reader = BufReader::new(buffer);
+            let data: T = serde_json::from_reader(reader)?;
+
+            Ok(data)
+        }
+        Err(_) => {
+            let data = T::default();
+            let _ = save::<T>(&data, file);
+
+            Ok(data)
+        }
+    }
 }
 
+pub fn save<T>(config: &T, file: &str) -> Result<usize, std::io::Error>
+where
+    T: Serialize,
+{
+    let mut writer = File::create(file)?;
+    let serialized = serde_json::to_string(config)?;
+    writer.write(serialized.as_bytes())
+}
+
+#[derive(Deserialize, Serialize, Default, Clone)]
 pub struct SoundField {
     pub label: String,
     pub file: String,
 }
 
-pub fn load_sounds() -> Vec<SoundField> {
-    let settings = Config::builder()
-        .add_source(config::File::with_name("./Sounds"))
-        .build()
-        .unwrap();
-
-    let sounds: Vec<SoundField> = settings
-        .get_array("sounds")
-        .unwrap()
-        .iter()
-        .map(|v| {
-            let sound = v.clone().into_table().unwrap();
-
-            SoundField {
-                label: sound.get("label").unwrap().clone().into_string().unwrap(),
-                file: sound.get("file").unwrap().clone().into_string().unwrap(),
-            }
-        })
-        .collect();
-
-    sounds
+#[derive(Deserialize, Serialize, Default, Clone)]
+struct SoundsFile {
+    sounds: Vec<SoundField>,
 }
 
-pub fn get_value(config: Config, category: &str, value: &str) -> Value {
-    let val = config
-        .get_table(category)
-        .unwrap()
-        .get(value)
-        .unwrap()
-        .clone();
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct SoundConfig {
+    pub device: String,
+    pub volume: f32,
+}
 
-    val
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct SocketConfig {
+    pub enabled: bool,
+    pub port: i16,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct AppConfig {
+    pub sound: SoundConfig,
+    pub socket: SocketConfig,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        let (output_devices, default_device) = audio_utils::get_audio_devices().unwrap();
+
+        let device = default_device.or(output_devices.get(0).cloned()).unwrap();
+        let volume: f32 = 1.0;
+
+        let sound = SoundConfig { device, volume };
+
+        let enabled = true;
+        let port: i16 = 12345;
+
+        let socket = SocketConfig { enabled, port };
+
+        Self { sound, socket }
+    }
+}
+
+pub fn load_sounds() -> Vec<SoundField> {
+    let conf = load::<SoundsFile>("./sounds.json").expect("Конфиг звуков не смог загрузиться.");
+
+    conf.sounds
+}
+
+pub fn save_sounds(sounds: &Vec<SoundField>) {
+    let conf = SoundsFile {
+        sounds: sounds.clone(),
+    };
+
+    save::<SoundsFile>(&conf, "./sounds.json").expect("Не удалось сохранить конфиг звуков.");
+}
+
+pub fn load_app_config() -> AppConfig {
+    load::<AppConfig>("./config.json").expect("Конфиг программы не смог загрузиться.")
+}
+
+pub fn save_app_config(config: &AppConfig) {
+    save::<AppConfig>(config, "./config.json").expect("Не удалось сохранить конфиг программы");
 }

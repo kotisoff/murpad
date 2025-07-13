@@ -1,9 +1,11 @@
 mod app_config;
 mod audio_utils;
+mod socket;
 mod sound_button;
 mod utils;
 mod window;
 
-fn main() -> iced::Result {
-    window::create_window()
+#[tokio::main]
+async fn main() {
+    window::create_window().unwrap();
 }
