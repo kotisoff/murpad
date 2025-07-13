@@ -8,4 +8,3 @@ iced = { version = "0.13.1" }
 rodio = { version = "0.21.0" }
 anyhow = { version = "1.0.98" }
 config = { version = "0.15.13", features = ["json"] }
-serde_json = { version = "1.0.140" }

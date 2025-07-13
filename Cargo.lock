@@ -2049,7 +2049,6 @@ dependencies = [
  "config",
  "iced",
  "rodio",
- "serde_json",
 ]
 
 [[package]]
