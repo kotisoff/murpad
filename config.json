@@ -1,10 +1,1 @@
-{
-  "sound": {
-    "device": "Динамики (USB Audio Device)",
-    "volume": 0.1
-  },
-  "socket": {
-    "enabled": true,
-    "port": 12345
-  }
-}
+{"sound":{"device":"CABLE-B Input (VB-Audio Cable B)","volume":0.1},"socket":{"enabled":true,"port":12345}}

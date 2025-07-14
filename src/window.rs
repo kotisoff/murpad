@@ -85,8 +85,8 @@ impl SoundPad {
 
                     if config.socket.enabled {
                         let server = socket::Server::new(config.socket.port).await;
+                        println!("Слушоем пакеты");
                         server.listen_packets(tx).await;
-                        println!("Слушоем пакеты")
                     };
                 });
 
@@ -95,7 +95,7 @@ impl SoundPad {
                 return Task::<Message>::perform(
                     async move {
                         while let Some(msg) = rx.recv().await {
-                            println!("Охуеть, пакет, {}", msg);
+                            println!("Жесть, пакет, {}", msg);
 
                             if let Some(button) = obj.buttons.get(msg - 1) {
                                 let sound_path = obj.sounds_dir.join(&button.file);
